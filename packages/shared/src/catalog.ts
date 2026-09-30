@@ -155,10 +155,36 @@ const BASES: Base[] = [
   { key: 'mirror', name: 'Зеркало', category: 'decor', subcategory: 'Зеркала', model: 'mirror', size: [60, 3, 90], price: 34990, color: '#dfe8ec', elevation: 110, wallMounted: true,
     variants: [{ suffix: 'в пол', size: [70, 4, 180], price: 69990, elevation: 0 }] },
 
+  // Extra MVP assortment (hallway, kids, dining)
+  { key: 'shoe-cabinet', name: 'Обувница', category: 'living', subcategory: 'Шкафы', model: 'dresser', size: [100, 35, 55], price: 44990, color: '#f2f2f0', materialId: 'furn-wood-white',
+    variants: [{ suffix: 'дуб', price: 54990, color: '#b88a5b', materialId: 'furn-wood-oak' }] },
+  { key: 'hall-wardrobe', name: 'Шкаф для прихожей', category: 'living', subcategory: 'Шкафы', model: 'wardrobe', size: [120, 45, 220], price: 169990, color: '#b88a5b', materialId: 'furn-wood-oak' },
+  { key: 'pouf', name: 'Пуф', category: 'living', subcategory: 'Кресла', model: 'armchair', size: [50, 50, 45], price: 24990, color: '#d5c6ad', materialId: 'furn-fabric-beige',
+    variants: [{ suffix: 'велюровый', price: 32990, color: '#46624f', materialId: 'furn-fabric-green' }] },
+  { key: 'console', name: 'Консоль', category: 'living', subcategory: 'Столы', model: 'desk', size: [110, 35, 80], price: 69990, color: '#5f3f2a', materialId: 'furn-wood-walnut' },
+  { key: 'kids-desk', name: 'Детский стол', category: 'bedroom', subcategory: 'Кровати', model: 'desk', size: [90, 55, 60], price: 39990, color: '#a9c7e8' },
+  { key: 'bunk-wardrobe', name: 'Детский шкаф', category: 'bedroom', subcategory: 'Шкафы', model: 'wardrobe', size: [80, 50, 180], price: 89990, color: '#a9c7e8' },
+  { key: 'bar-stool', name: 'Барный стул', category: 'kitchen', subcategory: 'Стулья', model: 'chair', size: [42, 45, 105], price: 39990, color: '#2a2a2c', materialId: 'furn-metal-black',
+    variants: [{ suffix: 'дуб', price: 44990, color: '#b88a5b', materialId: 'furn-wood-oak' }] },
+  { key: 'kitchen-island', name: 'Кухонный остров', category: 'kitchen', subcategory: 'Кухонные модули', model: 'kitchen-base', size: [180, 90, 90], price: 289990, color: '#f2f2f0', materialId: 'furn-wood-white', premium: true },
+  { key: 'bath-cabinet', name: 'Пенал для ванной', category: 'bathroom', subcategory: 'Раковины', model: 'wardrobe', size: [40, 35, 170], price: 59990, color: '#f2f2f0', materialId: 'furn-wood-white' },
+  { key: 'bath-mirror', name: 'Зеркало для ванной', category: 'bathroom', subcategory: 'Раковины', model: 'mirror', size: [60, 3, 80], price: 29990, color: '#dfe8ec', elevation: 110, wallMounted: true },
+  { key: 'office-desk-l', name: 'Угловой стол', category: 'office', subcategory: 'Столы', model: 'desk', size: [160, 120, 75], price: 169990, color: '#8c8f93', materialId: 'furn-metal-steel' },
+  { key: 'plant-tall', name: 'Фикус', category: 'decor', subcategory: 'Растения', model: 'plant', size: [60, 60, 180], price: 59990, color: '#3f6b3a' },
+  { key: 'painting-set', name: 'Постер', category: 'decor', subcategory: 'Картины', model: 'painting', size: [50, 3, 70], price: 14990, color: '#d9a441', elevation: 150, wallMounted: true,
+    variants: [
+      { suffix: 'абстракция', price: 19990, color: '#9c3d3d' },
+      { suffix: 'пейзаж', size: [100, 3, 70], price: 34990, color: '#4f7d4a' },
+    ] },
+  { key: 'rug-runner', name: 'Ковровая дорожка', category: 'decor', subcategory: 'Ковры', model: 'rug', size: [80, 250, 1], price: 29990, color: '#6b7280' },
+  { key: 'spotlight', name: 'Точечный светильник', category: 'lighting', subcategory: 'Потолочные', model: 'ceiling-light', size: [12, 12, 8], price: 7990, color: '#ffffff', elevation: 272, light: true },
+  { key: 'pendant', name: 'Подвесной светильник', category: 'lighting', subcategory: 'Потолочные', model: 'ceiling-light', size: [35, 35, 80], price: 44990, color: '#2a2a2c', elevation: 190, light: true },
+
   // Lighting
   { key: 'ceiling-light', name: 'Люстра', category: 'lighting', subcategory: 'Потолочные', model: 'ceiling-light', size: [60, 60, 30], price: 59990, color: '#f3e7c9', elevation: 240, light: true,
     variants: [{ suffix: 'плафон LED', size: [45, 45, 10], price: 24990, color: '#ffffff' }] },
-  { key: 'floor-lamp', name: 'Торшер', category: 'lighting', subcategory: 'Торшеры', model: 'floor-lamp', size: [40, 40, 165], price: 39990, color: '#2a2a2c', light: true },
+  { key: 'floor-lamp', name: 'Торшер', category: 'lighting', subcategory: 'Торшеры', model: 'floor-lamp', size: [40, 40, 165], price: 39990, color: '#2a2a2c', light: true,
+    variants: [{ suffix: 'латунь', price: 64990, color: '#c6a15b', premium: true }] },
   { key: 'wall-lamp', name: 'Бра', category: 'lighting', subcategory: 'Бра', model: 'wall-lamp', size: [20, 20, 25], price: 19990, color: '#c6a15b', elevation: 170, wallMounted: true, light: true },
 ];
 
