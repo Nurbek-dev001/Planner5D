@@ -9,6 +9,7 @@ const KEY = 'spaceplan:demo';
 /** Guest mode (docs, section 30): try the editor without an account; data stays in the browser */
 export default function DemoPage() {
   const [ready, setReady] = useState(false);
+  const [confirmReset, setConfirmReset] = useState(false);
 
   useEffect(() => {
     let data: ProjectData | null = null;
@@ -21,7 +22,12 @@ export default function DemoPage() {
     useEditor.getState().load(data ?? createProjectFromTemplate('two-room'));
     setReady(true);
     return useEditor.subscribe((s, prev) => {
-      if (s.revision !== prev.revision) localStorage.setItem(KEY, JSON.stringify(s.project));
+      if (s.revision === prev.revision) return;
+      try {
+        localStorage.setItem(KEY, JSON.stringify(s.project));
+      } catch {
+        /* storage unavailable: the demo still works in memory */
+      }
     });
   }, []);
 
@@ -35,17 +41,26 @@ export default function DemoPage() {
         <>
           <button
             className="btn-ghost"
+            onBlur={() => setConfirmReset(false)}
             onClick={() => {
-              if (!confirm('Начать демо заново?')) return;
-              localStorage.removeItem(KEY);
+              // Two-step confirmation inside the page (native dialogs are unavailable in embedded viewers)
+              if (!confirmReset) return setConfirmReset(true);
+              setConfirmReset(false);
+              try {
+                localStorage.removeItem(KEY);
+              } catch {
+                /* ignore */
+              }
               useEditor.getState().load(createProjectFromTemplate('two-room'));
             }}
           >
-            Сбросить
+            {confirmReset ? 'Точно сбросить?' : 'Сбросить'}
           </button>
-          <Link to="/register" className="btn-outline">
-            Создать аккаунт
-          </Link>
+          {import.meta.env.VITE_STATIC_DEMO !== '1' && (
+            <Link to="/register" className="btn-outline">
+              Создать аккаунт
+            </Link>
+          )}
         </>
       }
     />

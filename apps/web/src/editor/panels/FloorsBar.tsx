@@ -50,8 +50,8 @@ export function FloorsBar() {
           </button>
           {floors.length > 1 && f.id === floorId && (
             <button
-              title="Удалить этаж"
-              onClick={() => confirm(`Удалить «${f.name}»?`) && execute(DeleteFloorCommand(f.id))}
+              title="Удалить этаж (Ctrl+Z — вернуть)"
+              onClick={() => execute(DeleteFloorCommand(f.id))}
               className="absolute -top-1.5 -right-1.5 hidden rounded-full bg-white p-0.5 text-gray-500 shadow ring-1 ring-gray-200 group-hover:block hover:text-red-600"
             >
               <X size={10} />

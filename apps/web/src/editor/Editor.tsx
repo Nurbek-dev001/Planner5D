@@ -135,7 +135,7 @@ export function Editor({ name, onRename, saveState, onSave, headerExtra, backTo 
       {/* Header (docs, section 6) */}
       <header className="flex h-14 shrink-0 items-center gap-2 border-b border-gray-200 bg-white px-3">
         <Link to={backTo} className="flex items-center gap-2 pr-2 font-bold text-brand-600">
-          <img src="/favicon.svg" alt="" className="h-7 w-7" />
+          <img src={`${import.meta.env.BASE_URL}favicon.svg`} alt="" className="h-7 w-7" />
           <span className="hidden sm:inline">SpacePlan</span>
         </Link>
         <ProjectName name={name} onRename={onRename} />
@@ -153,7 +153,8 @@ export function Editor({ name, onRename, saveState, onSave, headerExtra, backTo 
           <Calculator size={17} />
           <span className="hidden md:inline">Смета</span>
         </button>
-        <ExportMenu name={name} />
+        {/* Downloads are unavailable in the embedded static demo */}
+        {import.meta.env.VITE_STATIC_DEMO !== '1' && <ExportMenu name={name} />}
         {onSave && (
           <button className="btn-primary" onClick={onSave} title="Сохранить (Ctrl+S)">
             <Save size={16} />

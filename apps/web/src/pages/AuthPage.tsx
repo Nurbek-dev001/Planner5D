@@ -41,7 +41,7 @@ export default function AuthPage({ mode }: { mode: 'login' | 'register' }) {
     <div className="flex min-h-full items-center justify-center p-4">
       <form onSubmit={submit} className="w-full max-w-sm space-y-4 rounded-2xl bg-white p-8 shadow-sm ring-1 ring-gray-200">
         <Link to="/" className="flex items-center gap-2 font-bold text-brand-600">
-          <img src="/favicon.svg" alt="" className="h-8 w-8" /> SpacePlan
+          <img src={`${import.meta.env.BASE_URL}favicon.svg`} alt="" className="h-8 w-8" /> SpacePlan
         </Link>
         <h1 className="text-xl font-semibold">{mode === 'login' ? 'Вход' : 'Регистрация'}</h1>
         {mode === 'register' && (

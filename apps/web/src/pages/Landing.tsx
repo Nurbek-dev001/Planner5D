@@ -15,7 +15,7 @@ export default function Landing() {
     <div className="min-h-full bg-gradient-to-b from-brand-50 to-white">
       <header className="mx-auto flex max-w-6xl items-center justify-between p-5">
         <div className="flex items-center gap-2 text-lg font-bold text-brand-600">
-          <img src="/favicon.svg" alt="" className="h-8 w-8" /> SpacePlan
+          <img src={`${import.meta.env.BASE_URL}favicon.svg`} alt="" className="h-8 w-8" /> SpacePlan
         </div>
         <div className="flex gap-2">
           <Link to="/login" className="btn-ghost">

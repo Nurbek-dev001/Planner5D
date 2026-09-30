@@ -44,7 +44,7 @@ export default function Dashboard() {
       <header className="sticky top-0 z-20 border-b border-gray-200 bg-white">
         <div className="mx-auto flex h-16 max-w-7xl items-center gap-4 px-5">
           <Link to="/dashboard" className="flex items-center gap-2 text-lg font-bold text-brand-600">
-            <img src="/favicon.svg" alt="" className="h-8 w-8" />
+            <img src={`${import.meta.env.BASE_URL}favicon.svg`} alt="" className="h-8 w-8" />
             <span className="hidden sm:inline">SpacePlan</span>
           </Link>
           <div className="relative max-w-md flex-1">

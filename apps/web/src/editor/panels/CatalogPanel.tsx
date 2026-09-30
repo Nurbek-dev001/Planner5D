@@ -33,7 +33,7 @@ export function CatalogPanel() {
   const view = useEditor((s) => s.view);
 
   useEffect(() => {
-    if (cachedItems) return;
+    if (cachedItems || import.meta.env.VITE_STATIC_DEMO === '1') return;
     api
       .catalogItems()
       .then(({ items }) => {
