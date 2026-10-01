@@ -2,6 +2,7 @@ import { create } from 'zustand';
 import { applyPatches, enablePatches, produce, produceWithPatches, type Patch } from 'immer';
 import type { Floor, ProjectData } from '@spaceplan/shared';
 import type { Command } from './commands';
+import type { PlanStyle } from './planTheme';
 
 enablePatches();
 
@@ -20,6 +21,15 @@ interface HistoryEntry {
 }
 
 const MAX_HISTORY = 200;
+const STYLE_KEY = 'spaceplan:planStyle';
+
+function savedPlanStyle(): PlanStyle {
+  try {
+    return localStorage.getItem(STYLE_KEY) === 'drafting' ? 'drafting' : 'blueprint';
+  } catch {
+    return 'blueprint';
+  }
+}
 
 interface EditorState {
   project: ProjectData;
@@ -34,6 +44,8 @@ interface EditorState {
   walkMode: boolean;
   snapToWalls: boolean;
   showDimensions: boolean;
+  /** Look of the 2D plan (remembered per browser) */
+  planStyle: PlanStyle;
   /** Pending door/window/furniture type to place with the current tool */
   doorType: 'single' | 'double' | 'sliding' | 'glass' | 'entrance';
   windowType: 'standard' | 'double' | 'panoramic' | 'corner' | 'balcony';
@@ -52,6 +64,7 @@ interface EditorState {
   setView: (v: ViewMode) => void;
   setFloor: (id: string) => void;
   set: (patch: Partial<Pick<EditorState, 'walkMode' | 'snapToWalls' | 'showDimensions' | 'doorType' | 'windowType'>>) => void;
+  setPlanStyle: (style: PlanStyle) => void;
 }
 
 export const useEditor = create<EditorState>((set, get) => ({
@@ -66,6 +79,7 @@ export const useEditor = create<EditorState>((set, get) => ({
   walkMode: false,
   snapToWalls: true,
   showDimensions: true,
+  planStyle: savedPlanStyle(),
   doorType: 'single',
   windowType: 'standard',
   previewBase: null,
@@ -130,6 +144,14 @@ export const useEditor = create<EditorState>((set, get) => ({
   setView: (view) => set({ view, walkMode: false }),
   setFloor: (floorId) => set({ floorId, selection: null }),
   set: (patch) => set(patch),
+  setPlanStyle: (planStyle) => {
+    try {
+      localStorage.setItem(STYLE_KEY, planStyle);
+    } catch {
+      /* storage unavailable: keep it for this session only */
+    }
+    set({ planStyle });
+  },
 }));
 
 /** Drop the selection / active floor if they no longer exist after a change */

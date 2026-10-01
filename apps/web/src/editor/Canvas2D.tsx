@@ -1,5 +1,5 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
-import { Circle, Group, Layer, Line, Rect, Shape, Stage, Text, Transformer } from 'react-konva';
+import { Fragment, useEffect, useMemo, useRef, useState } from 'react';
+import { Layer, Line, Rect, Shape, Stage, Text, Transformer } from 'react-konva';
 import type Konva from 'konva';
 import {
   CATALOG_BY_ID,
@@ -53,7 +53,9 @@ import {
   UpdateOpeningCommand,
   type Command,
 } from './commands';
-import { drawSymbol, tint } from './symbols2d';
+import { drawSymbol } from './symbols2d';
+import { MONO_FONT, PLAN_THEMES, alpha } from './planTheme';
+import { drawCrosshair, drawDimensions, drawGrid, drawOpening, drawSelectedWall, drawSnapMarker, drawWalls, wallPolygon, type WorldRect } from './planRender';
 import { viewport } from './viewport';
 
 type Drag =
@@ -119,24 +121,6 @@ function wallUnder(p: Vec2, walls: Wall[], scale: number) {
   return best;
 }
 
-/** Outline polygon of a wall, extended by half thickness at joined ends to close corners */
-function wallPolygon(w: Wall, walls: Wall[]): number[] {
-  const dir = wallDirection(w);
-  const n = vscale(perp(dir), w.thickness / 2);
-  const joined = (p: Vec2) => walls.some((o) => o.id !== w.id && (samePoint(o.start, p) || samePoint(o.end, p)));
-  const s = joined(w.start) ? sub(w.start, vscale(dir, w.thickness / 2)) : w.start;
-  const e = joined(w.end) ? add(w.end, vscale(dir, w.thickness / 2)) : w.end;
-  const pts = [add(s, n), add(e, n), sub(e, n), sub(s, n)];
-  return pts.flatMap((p) => [p.x, p.y]);
-}
-
-function readableAngle(deg: number) {
-  let a = deg;
-  if (a > 90) a -= 180;
-  if (a <= -90) a += 180;
-  return a;
-}
-
 export default function Canvas2D() {
   const containerRef = useRef<HTMLDivElement>(null);
   const stageRef = useRef<Konva.Stage>(null);
@@ -158,6 +142,8 @@ export default function Canvas2D() {
   const tool = useEditor((s) => s.tool);
   const selection = useEditor((s) => s.selection);
   const showDimensions = useEditor((s) => s.showDimensions);
+  const planStyle = useEditor((s) => s.planStyle);
+  const coordsRef = useRef<HTMLSpanElement>(null);
   const floorId = floor.id;
   const scale = view.scale;
   const px = (v: number) => v / scale; // screen pixels → world units
@@ -182,7 +168,7 @@ export default function Canvas2D() {
       return;
     }
     const bb = boundingBox(pts);
-    const s = Math.min((w - 120) / Math.max(bb.width, 100), (h - 120) / Math.max(bb.height, 100), 3);
+    const s = Math.min((w - 220) / Math.max(bb.width, 100), (h - 220) / Math.max(bb.height, 100), 3);
     setView({ scale: s, x: w / 2 - (bb.minX + bb.width / 2) * s, y: h / 2 - (bb.minY + bb.height / 2) * s });
   };
 
@@ -514,6 +500,7 @@ export default function Canvas2D() {
   };
 
   // ------------------------------------------------------------------ render data
+  const theme = PLAN_THEMES[planStyle];
   const selectedWall = selection?.kind === 'wall' ? floor.walls.find((w) => w.id === selection.id) : undefined;
   const wallsById = useMemo(() => new Map(floor.walls.map((w) => [w.id, w])), [floor.walls]);
   const rooms = useMemo(
@@ -527,15 +514,30 @@ export default function Canvas2D() {
   );
   const drawing = tool === 'wall' && drawStart && cursor ? { a: drawStart, b: cursor.point } : null;
   const cursorStyle = tool === 'pan' ? 'grab' : tool === 'select' ? 'default' : 'crosshair';
+  const worldRect: WorldRect = {
+    minX: -view.x / scale,
+    minY: -view.y / scale,
+    maxX: (size.width - view.x) / scale,
+    maxY: (size.height - view.y) / scale,
+  };
+  const showCrosshair = cursor && (tool === 'wall' || tool === 'room');
 
   return (
     <div
       ref={containerRef}
-      className="relative h-full w-full overflow-hidden bg-[#fbfbfc]"
-      style={{ cursor: cursorStyle }}
+      className="relative h-full w-full overflow-hidden"
+      style={{ cursor: cursorStyle, background: theme.bg }}
       onDragOver={(e) => e.preventDefault()}
       onDrop={onDrop}
       onContextMenu={(e) => e.preventDefault()}
+      onPointerMove={(e) => {
+        const el = coordsRef.current;
+        const rect = containerRef.current?.getBoundingClientRect();
+        if (!el || !rect) return;
+        const x = (e.clientX - rect.left - view.x) / scale;
+        const y = (e.clientY - rect.top - view.y) / scale;
+        el.textContent = `X ${formatCoord(x, units)}  Y ${formatCoord(y, units)}`;
+      }}
     >
       <Stage
         ref={stageRef}
@@ -551,7 +553,7 @@ export default function Canvas2D() {
         onWheel={onWheel}
       >
         <Layer listening={false}>
-          <Grid width={size.width} height={size.height} view={view} />
+          <Shape sceneFunc={(ctx) => drawGrid(ctx._context, worldRect, px(1), theme)} />
         </Layer>
 
         <Layer>
@@ -562,21 +564,30 @@ export default function Canvas2D() {
               name="room"
               points={inner.flatMap((p) => [p.x, p.y])}
               closed
-              fill={tint(getMaterial(room.floorMaterialId, DEFAULT_FLOOR_MATERIAL).baseColor, 0.3)}
-              stroke={selection?.id === room.id ? '#2563eb' : undefined}
-              strokeWidth={px(2)}
+              fill={alpha(getMaterial(room.floorMaterialId, DEFAULT_FLOOR_MATERIAL).baseColor, theme.roomAlpha)}
+              stroke={selection?.id === room.id ? theme.accent : undefined}
+              strokeWidth={px(1.5)}
               dash={[px(6), px(4)]}
             />
           ))}
 
+          <Shape
+            listening={false}
+            sceneFunc={(ctx) => {
+              drawWalls(ctx._context, floor.walls, px(1), theme);
+              if (selectedWall) drawSelectedWall(ctx._context, selectedWall, floor.walls, px(1), theme);
+            }}
+          />
+          {/* Invisible hit areas: the walls themselves are drawn as one hatched solid above */}
           {floor.walls.map((w) => (
             <Line
               key={w.id}
               id={w.id}
               name="wall"
-              points={wallPolygon(w, floor.walls)}
+              points={wallPolygon(w, floor.walls).flatMap((p) => [p.x, p.y])}
               closed
-              fill={selection?.id === w.id ? '#3b82f6' : '#374151'}
+              fill="#000"
+              opacity={0}
               hitStrokeWidth={px(8)}
             />
           ))}
@@ -593,7 +604,7 @@ export default function Canvas2D() {
                 x={pos.x}
                 y={pos.y}
                 rotation={wallAngleDeg(w)}
-                sceneFunc={(ctx) => drawOpening(ctx._context, o, w.thickness, selection?.id === o.id, px(1.2))}
+                sceneFunc={(ctx) => drawOpening(ctx._context, o, w.thickness, selection?.id === o.id, px(1), theme)}
                 hitFunc={(ctx, shape) => {
                   ctx.beginPath();
                   ctx.rect(-o.width / 2, -w.thickness / 2 - px(4), o.width, w.thickness + px(8));
@@ -613,70 +624,76 @@ export default function Canvas2D() {
                 x={o.position.x}
                 y={o.position.y}
                 rotation={o.rotation}
+                // Size + centred offset give the transformer a real frame; drawing stays centre-based
+                width={o.width}
+                height={o.depth}
+                offsetX={o.width / 2}
+                offsetY={o.depth / 2}
                 sceneFunc={(ctx) => {
-                  drawSymbol(ctx._context, item?.model ?? 'desk', o.width, o.depth, o.color ?? item?.color ?? '#999999', px(1));
+                  ctx.translate(o.width / 2, o.depth / 2);
+                  drawSymbol(ctx._context, item?.model ?? 'desk', o.width, o.depth, o.color ?? item?.color ?? '#999999', px(1), theme.symbol);
                 }}
                 hitFunc={(ctx, shape) => {
                   ctx.beginPath();
-                  ctx.rect(-o.width / 2, -o.depth / 2, o.width, Math.max(o.depth, px(6)));
+                  ctx.rect(0, Math.min(0, (o.depth - px(6)) / 2), o.width, Math.max(o.depth, px(6)));
                   ctx.fillStrokeShape(shape);
                 }}
               />
             );
           })}
 
-          {showDimensions &&
-            floor.walls.map((w) => {
-              const mid = pointOnWall(w, wallLength(w) / 2);
-              const n = perp(wallDirection(w));
-              const at = add(mid, vscale(n, -(w.thickness / 2 + px(12))));
-              const fs = px(11);
-              const label = formatLength(wallLength(w), units);
-              const width = fs * 0.6 * label.length;
-              return (
-                <Text
-                  key={`dim-${w.id}`}
-                  x={at.x}
-                  y={at.y}
-                  text={label}
-                  fontSize={fs}
-                  fill="#6b7280"
-                  rotation={readableAngle(wallAngleDeg(w))}
-                  offsetX={width / 2}
-                  offsetY={fs / 2}
-                  width={width}
-                  align="center"
-                  listening={false}
-                />
-              );
-            })}
+          {showDimensions && <Shape listening={false} sceneFunc={(ctx) => drawDimensions(ctx._context, floor, units, px(1), theme, selectedWall?.id)} />}
 
           {rooms.map(({ room, label, area, dims }) => {
-            const fs = px(12);
-            const text = `${room.name}\n${formatLength(dims.width, units)} × ${formatLength(dims.length, units)}\n${formatArea(area, units)}`;
-            const width = px(170);
+            const name = room.name.toUpperCase();
+            const areaText = formatArea(area, units);
+            const dimsText = `${formatLength(dims.width, units)} × ${formatLength(dims.length, units)}`;
+            // Approximate text widths (monospace digits) for the backing plate
+            const plateW = px(Math.max(name.length * 9.2, areaText.length * 10.6, dimsText.length * 6.3) + 18);
+            const plateH = px(56);
+            const width = px(200);
+            const common = { x: label.x, width, offsetX: width / 2, align: 'center' as const, listening: false };
             return (
-              <Text
-                key={`label-${room.id}`}
-                x={label.x}
-                y={label.y}
-                text={text}
-                fontSize={fs}
-                lineHeight={1.3}
-                fill="#1f2937"
-                align="center"
-                width={width}
-                offsetX={width / 2}
-                offsetY={fs * 2}
-                listening={false}
-              />
+              <Fragment key={`label-${room.id}`}>
+                <Rect
+                  x={label.x}
+                  y={label.y}
+                  width={plateW}
+                  height={plateH}
+                  offsetX={plateW / 2}
+                  offsetY={px(28)}
+                  fill={alpha(theme.bg === '#ffffff' ? '#ffffff' : '#0b1626', 0.72)}
+                  stroke={selection?.id === room.id ? theme.accent : alpha(theme.accent, 0.25)}
+                  strokeWidth={px(1)}
+                  cornerRadius={px(2)}
+                  listening={false}
+                />
+                <Text {...common} y={label.y - px(21)} text={name} fontSize={px(10.5)} fontStyle="600" letterSpacing={px(1.5)} fill={theme.textMuted} />
+                <Text {...common} y={label.y - px(7)} text={areaText} fontSize={px(17)} fontStyle="600" fontFamily={MONO_FONT} fill={theme.text} />
+                <Text {...common} y={label.y + px(13)} text={dimsText} fontSize={px(10)} fontFamily={MONO_FONT} fill={theme.textMuted} />
+              </Fragment>
             );
           })}
 
           {selectedWall &&
             tool === 'select' &&
             [selectedWall.start, selectedWall.end].map((p, i) => (
-              <Circle key={i} name="handle" px={p.x} py={p.y} x={p.x} y={p.y} radius={px(7)} fill="#fff" stroke="#2563eb" strokeWidth={px(2)} />
+              <Rect
+                key={i}
+                name="handle"
+                px={p.x}
+                py={p.y}
+                x={p.x}
+                y={p.y}
+                width={px(10)}
+                height={px(10)}
+                offsetX={px(5)}
+                offsetY={px(5)}
+                fill={theme.bg}
+                stroke={theme.accent}
+                strokeWidth={px(1.5)}
+                hitStrokeWidth={px(8)}
+              />
             ))}
 
           <Transformer
@@ -684,27 +701,47 @@ export default function Canvas2D() {
             rotationSnaps={[0, 45, 90, 135, 180, 225, 270, 315]}
             rotationSnapTolerance={6}
             anchorSize={8}
+            anchorCornerRadius={0}
+            anchorFill={theme.bg}
+            anchorStroke={theme.accent}
+            borderStroke={theme.accent}
+            borderDash={[4, 3]}
+            rotateAnchorOffset={24}
             keepRatio={false}
             flipEnabled={false}
-            borderStroke="#2563eb"
-            anchorStroke="#2563eb"
             enabledAnchors={['middle-left', 'middle-right', 'top-center', 'bottom-center', 'top-left', 'top-right', 'bottom-left', 'bottom-right']}
             onTransformEnd={onTransformEnd}
           />
         </Layer>
 
         <Layer listening={false}>
+          {showCrosshair && <Shape sceneFunc={(ctx) => drawCrosshair(ctx._context, cursor.point, worldRect, px(1), theme)} />}
           {drawing && (
             <>
-              <Line points={[drawing.a.x, drawing.a.y, drawing.b.x, drawing.b.y]} stroke="#2563eb" strokeWidth={20} opacity={0.35} lineCap="square" />
-              <Line points={[drawing.a.x, drawing.a.y, drawing.b.x, drawing.b.y]} stroke="#2563eb" strokeWidth={px(1.5)} dash={[px(6), px(4)]} />
-              <Text
-                x={(drawing.a.x + drawing.b.x) / 2 + px(10)}
-                y={(drawing.a.y + drawing.b.y) / 2 + px(10)}
-                text={formatLength(dist(drawing.a, drawing.b), units)}
-                fontSize={px(13)}
-                fontStyle="bold"
-                fill="#1d4ed8"
+              <Shape
+                sceneFunc={(ctx) => {
+                  const c = ctx._context;
+                  const l = dist(drawing.a, drawing.b);
+                  if (l < 1) return;
+                  const wall = createWall(drawing.a, drawing.b);
+                  const poly = wallPolygon(wall, []);
+                  c.beginPath();
+                  poly.forEach((p, i) => (i ? c.lineTo(p.x, p.y) : c.moveTo(p.x, p.y)));
+                  c.closePath();
+                  c.fillStyle = theme.selFill;
+                  c.fill();
+                  c.setLineDash([px(5), px(3)]);
+                  c.lineWidth = px(1.5);
+                  c.strokeStyle = theme.accent;
+                  c.stroke();
+                }}
+              />
+              <MeasureTag
+                at={{ x: (drawing.a.x + drawing.b.x) / 2, y: (drawing.a.y + drawing.b.y) / 2 }}
+                text={`${formatLength(dist(drawing.a, drawing.b), units)}  ${Math.round(normalizeAngle(-wallAngleDeg({ start: drawing.a, end: drawing.b })))}°`}
+                px={px}
+                color={theme.accent}
+                bg={theme.bg}
               />
             </>
           )}
@@ -715,38 +752,87 @@ export default function Canvas2D() {
                 y={Math.min(rect.a.y, rect.b.y)}
                 width={Math.abs(rect.b.x - rect.a.x)}
                 height={Math.abs(rect.b.y - rect.a.y)}
-                stroke="#2563eb"
-                strokeWidth={20}
-                opacity={0.35}
+                fill={theme.selFill}
+                stroke={theme.accent}
+                strokeWidth={px(1.5)}
+                dash={[px(5), px(3)]}
               />
-              <Text
-                x={Math.min(rect.a.x, rect.b.x)}
-                y={Math.min(rect.a.y, rect.b.y) - px(20)}
+              <MeasureTag
+                at={{ x: (rect.a.x + rect.b.x) / 2, y: Math.min(rect.a.y, rect.b.y) - px(18) }}
                 text={`${formatLength(Math.abs(rect.b.x - rect.a.x), units)} × ${formatLength(Math.abs(rect.b.y - rect.a.y), units)}`}
-                fontSize={px(13)}
-                fontStyle="bold"
-                fill="#1d4ed8"
+                px={px}
+                color={theme.accent}
+                bg={theme.bg}
               />
             </>
           )}
-          {ghost && (tool === 'door' || tool === 'window') && (
-            <GhostOpening wall={ghost.wall} offset={ghost.offset} tool={tool} px={px} />
-          )}
+          {ghost && (tool === 'door' || tool === 'window') && <GhostOpening wall={ghost.wall} offset={ghost.offset} tool={tool} px={px} color={tool === 'door' ? theme.door : theme.window} />}
           {cursor && cursor.kind !== 'none' && (tool === 'wall' || tool === 'room' || drag.current?.kind === 'endpoint') && (
-            <Circle
-              x={cursor.point.x}
-              y={cursor.point.y}
-              radius={px(cursor.kind === 'endpoint' ? 6 : 4)}
-              fill={cursor.kind === 'endpoint' ? '#f59e0b' : cursor.kind === 'wall' ? '#10b981' : '#2563eb'}
-            />
+            <Shape sceneFunc={(ctx) => drawSnapMarker(ctx._context, cursor.point, cursor.kind, px(1), theme)} />
           )}
         </Layer>
       </Stage>
 
-      <div className="pointer-events-none absolute bottom-3 left-3 rounded-md bg-white/90 px-2 py-1 text-xs text-gray-500 shadow-sm">
-        {hintFor(tool, !!drawStart)} · масштаб {Math.round(view.scale * 100)}%
-      </div>
+      <Hud theme={theme} hint={hintFor(tool, !!drawStart)} scale={scale} units={units} coordsRef={coordsRef} />
     </div>
+  );
+}
+
+/** Screen-space overlay: tool hint, pointer coordinates and a scale bar */
+function Hud({
+  theme,
+  hint,
+  scale,
+  units,
+  coordsRef,
+}: {
+  theme: (typeof PLAN_THEMES)[keyof typeof PLAN_THEMES];
+  hint: string;
+  scale: number;
+  units: Units;
+  coordsRef: React.RefObject<HTMLSpanElement | null>;
+}) {
+  // Scale bar: a round length that is 70–180 px long on screen
+  const nice = [1, 2, 5, 10, 20, 50, 100, 200, 500, 1000, 2000, 5000, 10000];
+  const len = nice.find((l) => l * scale >= 70) ?? 10000;
+  return (
+    <>
+      <div className="hud pointer-events-none absolute bottom-3 left-3 max-w-[55%] px-2.5 py-1.5 font-mono text-[11px]">
+        {hint}
+      </div>
+      <div className="hud pointer-events-none absolute right-3 bottom-3 flex items-center gap-3 px-2.5 py-1.5 font-mono text-[11px]">
+        <span ref={coordsRef} className="tabular-nums" style={{ color: theme.text }}>
+          X —  Y —
+        </span>
+        <span className="h-5 w-px bg-[var(--hud-border)]" />
+        <span className="flex flex-col items-start gap-0.5">
+          <span className="flex" style={{ width: len * scale }}>
+            {[0, 1, 2, 3].map((i) => (
+              <span key={i} className="h-1.5 flex-1 border" style={{ borderColor: theme.text, background: i % 2 ? 'transparent' : theme.text }} />
+            ))}
+          </span>
+          <span style={{ color: theme.text }}>{formatLength(len, units)}</span>
+        </span>
+        <span className="tabular-nums" style={{ color: theme.textMuted }}>{Math.round(scale * 100)}%</span>
+      </div>
+    </>
+  );
+}
+
+function formatCoord(v: number, units: Units) {
+  return units === 'in' || units === 'ft' ? formatLength(v, units) : `${(v / 100).toFixed(2)} м`;
+}
+
+/** Live measurement shown while drawing */
+function MeasureTag({ at, text, px, color, bg }: { at: Vec2; text: string; px: (v: number) => number; color: string; bg: string }) {
+  const fs = px(11.5);
+  const w = fs * 0.62 * text.length + px(14);
+  const h = px(20);
+  return (
+    <>
+      <Rect x={at.x} y={at.y} width={w} height={h} offsetX={w / 2} offsetY={h / 2} fill={bg} stroke={color} strokeWidth={px(1)} cornerRadius={px(2)} />
+      <Text x={at.x} y={at.y} width={w} offsetX={w / 2} offsetY={fs / 2 - px(0.5)} text={text} fontSize={fs} fontStyle="600" fontFamily={MONO_FONT} fill={color} align="center" />
+    </>
   );
 }
 
@@ -770,7 +856,7 @@ function hintFor(tool: string, drawing: boolean) {
   }
 }
 
-function GhostOpening({ wall, offset, tool, px }: { wall: Wall; offset: number; tool: 'door' | 'window'; px: (v: number) => number }) {
+function GhostOpening({ wall, offset, tool, px, color }: { wall: Wall; offset: number; tool: 'door' | 'window'; px: (v: number) => number; color: string }) {
   const s = useEditor.getState();
   const width = tool === 'door' ? DOOR_PRESETS[s.doorType].width : WINDOW_PRESETS[s.windowType].width;
   const l = wallLength(wall);
@@ -785,99 +871,10 @@ function GhostOpening({ wall, offset, tool, px }: { wall: Wall; offset: number; 
       offsetX={width / 2}
       offsetY={(wall.thickness + px(6)) / 2}
       rotation={wallAngleDeg(wall)}
-      fill={tool === 'door' ? '#f59e0b' : '#38bdf8'}
-      opacity={0.6}
-    />
-  );
-}
-
-function drawOpening(c: CanvasRenderingContext2D, o: Opening, t: number, selected: boolean, lw: number) {
-  const w = o.width;
-  const stroke = selected ? '#2563eb' : '#374151';
-  c.save();
-  c.fillStyle = '#ffffff';
-  c.fillRect(-w / 2, -t / 2 - 0.5, w, t + 1);
-  c.lineWidth = lw;
-  c.strokeStyle = stroke;
-  if (o.kind === 'window') {
-    c.fillStyle = selected ? '#bfdbfe' : '#e0f2fe';
-    c.fillRect(-w / 2, -t / 4, w, t / 2);
-    c.strokeRect(-w / 2, -t / 2, w, t);
-    c.beginPath();
-    c.moveTo(-w / 2, 0);
-    c.lineTo(w / 2, 0);
-    c.stroke();
-  } else {
-    const side = o.swing === 'in' ? 1 : -1;
-    c.beginPath();
-    c.moveTo(-w / 2, -t / 2);
-    c.lineTo(-w / 2, t / 2);
-    c.moveTo(w / 2, -t / 2);
-    c.lineTo(w / 2, t / 2);
-    c.stroke();
-    if (o.type === 'sliding') {
-      c.fillStyle = selected ? '#bfdbfe' : '#f3f4f6';
-      c.fillRect(-w / 2, -t / 4, w * 0.55, t / 4);
-      c.strokeRect(-w / 2, -t / 4, w * 0.55, t / 4);
-      c.fillRect(w / 2 - w * 0.55, 0, w * 0.55, t / 4);
-      c.strokeRect(w / 2 - w * 0.55, 0, w * 0.55, t / 4);
-    } else {
-      const leaves: [number, number, number][] =
-        o.type === 'double'
-          ? [
-              [-w / 2, w / 2, 1],
-              [w / 2, w / 2, -1],
-            ]
-          : [[o.hinge === 'left' ? -w / 2 : w / 2, w, o.hinge === 'left' ? 1 : -1]];
-      for (const [hx, lw2, dir] of leaves) {
-        const y0 = (side * t) / 2;
-        c.beginPath();
-        c.moveTo(hx, y0);
-        c.lineTo(hx, y0 + side * lw2);
-        c.stroke();
-        c.beginPath();
-        c.setLineDash([lw * 3, lw * 2]);
-        const start = side > 0 ? Math.PI / 2 : -Math.PI / 2;
-        const end = dir > 0 ? 0 : Math.PI;
-        c.arc(hx, y0, lw2, start, end, (side > 0) === dir > 0);
-        c.stroke();
-        c.setLineDash([]);
-      }
-    }
-  }
-  c.restore();
-}
-
-function Grid({ width, height, view }: { width: number; height: number; view: { scale: number; x: number; y: number } }) {
-  return (
-    <Shape
-      sceneFunc={(ctx) => {
-        const c = ctx._context;
-        const s = view.scale;
-        const minX = -view.x / s;
-        const minY = -view.y / s;
-        const maxX = minX + width / s;
-        const maxY = minY + height / s;
-        const steps = [10, 50, 100, 500, 1000];
-        const minor = steps.find((st) => st * s >= 8) ?? 1000;
-        const major = minor * (minor === 10 ? 10 : minor === 50 ? 2 : 5);
-        const drawLines = (step: number, color: string) => {
-          c.beginPath();
-          c.strokeStyle = color;
-          c.lineWidth = 1 / s;
-          for (let x = Math.floor(minX / step) * step; x <= maxX; x += step) {
-            c.moveTo(x, minY);
-            c.lineTo(x, maxY);
-          }
-          for (let y = Math.floor(minY / step) * step; y <= maxY; y += step) {
-            c.moveTo(minX, y);
-            c.lineTo(maxX, y);
-          }
-          c.stroke();
-        };
-        drawLines(minor, '#eef0f3');
-        drawLines(major, '#dde1e6');
-      }}
+      fill={alpha(color, 0.35)}
+      stroke={color}
+      strokeWidth={px(1.5)}
+      dash={[px(4), px(3)]}
     />
   );
 }

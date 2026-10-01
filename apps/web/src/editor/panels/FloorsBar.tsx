@@ -39,12 +39,12 @@ export function FloorsBar() {
   };
 
   return (
-    <div className="flex items-center gap-1 rounded-lg bg-white/95 p-1 shadow-sm ring-1 ring-gray-200">
+    <div className="hud flex items-center gap-1 p-1">
       {floors.map((f) => (
         <div key={f.id} className="group relative">
           <button
             onClick={() => setFloor(f.id)}
-            className={`rounded-md px-3 py-1 text-xs font-medium ${f.id === floorId ? 'bg-brand-600 text-white' : 'text-gray-600 hover:bg-gray-100'}`}
+            className={`hud-btn px-3 py-1 font-mono text-[11px] font-medium tracking-wide uppercase ${f.id === floorId ? 'hud-btn-active' : ''}`}
           >
             {f.name}
           </button>
@@ -59,10 +59,10 @@ export function FloorsBar() {
           )}
         </div>
       ))}
-      <button title="Добавить этаж" className="rounded-md p-1 text-gray-500 hover:bg-gray-100" onClick={addFloor}>
+      <button title="Добавить этаж" className="hud-btn p-1" onClick={addFloor}>
         <Plus size={16} />
       </button>
-      <button title="Копировать этаж" className="rounded-md p-1 text-gray-500 hover:bg-gray-100" onClick={copyFloor}>
+      <button title="Копировать этаж" className="hud-btn p-1" onClick={copyFloor}>
         <Copy size={14} />
       </button>
     </div>

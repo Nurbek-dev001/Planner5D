@@ -3,6 +3,7 @@ import { Link } from 'react-router';
 import {
   Box,
   Calculator,
+  Contrast,
   Check,
   ChevronDown,
   CloudOff,
@@ -38,6 +39,7 @@ import {
   UpdateProjectCommand,
 } from './commands';
 import { walkInput } from './three/walkInput';
+import { HUD_VARS } from './planTheme';
 
 const Scene3D = lazy(() => import('./three/Scene3D'));
 
@@ -76,6 +78,7 @@ export function Editor({ name, onRename, saveState, onSave, headerExtra, backTo 
   const snapToWalls = useEditor((s) => s.snapToWalls);
   const showDimensions = useEditor((s) => s.showDimensions);
   const night = useEditor((s) => s.project.settings.timeOfDay === 'night');
+  const planStyle = useEditor((s) => s.planStyle);
   const [budgetOpen, setBudgetOpen] = useState(false);
   const [leftTab, setLeftTab] = useState<'catalog' | 'help'>('catalog');
   const { undo, redo, setView, set, execute } = useEditor.getState();
@@ -131,7 +134,7 @@ export function Editor({ name, onRename, saveState, onSave, headerExtra, backTo 
   }, [onSave]);
 
   return (
-    <div className="flex h-full flex-col">
+    <div className={`flex h-full flex-col ${planStyle === 'blueprint' ? 'ui-dark' : ''}`}>
       {/* Header (docs, section 6) */}
       <header className="flex h-14 shrink-0 items-center gap-2 border-b border-gray-200 bg-white px-3">
         <Link to={backTo} className="flex items-center gap-2 pr-2 font-bold text-brand-600">
@@ -179,7 +182,7 @@ export function Editor({ name, onRename, saveState, onSave, headerExtra, backTo 
         </aside>
 
         {/* Canvas */}
-        <main className="relative min-w-0 flex-1">
+        <main className="relative min-w-0 flex-1" style={HUD_VARS[planStyle] as React.CSSProperties}>
           {view === '2d' ? (
             <Canvas2D />
           ) : (
@@ -192,12 +195,21 @@ export function Editor({ name, onRename, saveState, onSave, headerExtra, backTo 
             <FloorsBar />
           </div>
 
-          <div className="absolute top-3 right-3 flex gap-1 rounded-lg bg-white/95 p-1 shadow-sm ring-1 ring-gray-200">
+          <div className="hud absolute top-3 right-3 flex gap-1 p-1">
             {view === '2d' ? (
               <>
                 <ToggleIcon active={snapToWalls} title="Привязка мебели к стенам" onClick={() => set({ snapToWalls: !snapToWalls })} icon={<Magnet size={16} />} />
                 <ToggleIcon active={showDimensions} title="Размеры стен" onClick={() => set({ showDimensions: !showDimensions })} icon={<Ruler size={16} />} />
                 <ToggleIcon active={false} title="Показать весь план" onClick={() => window.dispatchEvent(new Event('spaceplan:fit'))} icon={<Maximize size={16} />} />
+                <span className="mx-0.5 w-px self-stretch bg-[var(--hud-border)]" />
+                <button
+                  title="Стиль плана: Blueprint / Чертёж"
+                  onClick={() => useEditor.getState().setPlanStyle(planStyle === 'blueprint' ? 'drafting' : 'blueprint')}
+                  className="hud-btn flex items-center gap-1.5 px-2 font-mono text-[11px] font-medium tracking-wide uppercase"
+                >
+                  <Contrast size={14} />
+                  {planStyle === 'blueprint' ? 'Blueprint' : 'Чертёж'}
+                </button>
               </>
             ) : (
               <>
@@ -213,12 +225,12 @@ export function Editor({ name, onRename, saveState, onSave, headerExtra, backTo 
           </div>
 
           {/* 2D | 3D switch (same Project JSON for both renderers) */}
-          <div className="absolute top-3 left-1/2 flex -translate-x-1/2 rounded-full bg-white p-1 shadow-md ring-1 ring-gray-200">
+          <div className="hud absolute top-3 left-1/2 flex -translate-x-1/2 gap-1 p-1">
             {(['2d', '3d'] as const).map((v) => (
               <button
                 key={v}
                 onClick={() => setView(v)}
-                className={`flex items-center gap-1.5 rounded-full px-5 py-1.5 text-sm font-semibold ${view === v ? 'bg-brand-600 text-white' : 'text-gray-600 hover:bg-gray-100'}`}
+                className={`hud-btn flex items-center gap-1.5 px-5 py-1 font-mono text-xs font-semibold tracking-widest ${view === v ? 'hud-btn-active' : ''}`}
               >
                 {v === '3d' && <Box size={15} />}
                 {v.toUpperCase()}
@@ -228,7 +240,7 @@ export function Editor({ name, onRename, saveState, onSave, headerExtra, backTo 
 
           {view === '3d' && walkMode && <Joystick />}
           {view === '3d' && walkMode && (
-            <div className="pointer-events-none absolute bottom-4 left-1/2 -translate-x-1/2 rounded-md bg-black/60 px-3 py-1 text-xs text-white">
+            <div className="pointer-events-none absolute bottom-4 left-1/2 -translate-x-1/2 rounded-md bg-black/60 px-3 py-1 text-xs text-[#fff]">
               WASD — движение · мышь (зажать) — обзор · Shift — быстрее · Esc — выход
             </div>
           )}
@@ -247,7 +259,7 @@ export function Editor({ name, onRename, saveState, onSave, headerExtra, backTo 
 
 function ToggleIcon({ active, title, onClick, icon }: { active: boolean; title: string; onClick: () => void; icon: ReactNode }) {
   return (
-    <button title={title} onClick={onClick} className={`rounded-md p-1.5 ${active ? 'bg-brand-50 text-brand-600' : 'text-gray-500 hover:bg-gray-100'}`}>
+    <button title={title} onClick={onClick} className={`hud-btn p-1.5 ${active ? 'hud-btn-active' : ''}`}>
       {icon}
     </button>
   );

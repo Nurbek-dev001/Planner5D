@@ -383,6 +383,7 @@ function Lights({ project, center, radius }: { project: ProjectData; center: THR
 
 function SceneContent() {
   const project = useEditor((s) => s.project);
+  const planStyle = useEditor((s) => s.planStyle);
   const floorId = useEditor((s) => s.floorId);
   const selection = useEditor((s) => s.selection);
   const walkMode = useEditor((s) => s.walkMode);
@@ -417,9 +418,14 @@ function SceneContent() {
     return new THREE.Vector3(bb.minX + bb.width / 2, 0, bb.minY + bb.height / 2);
   }, [active.rooms, center]);
 
+  const night = project.settings.timeOfDay === 'night';
+  // Blueprint style: dark studio backdrop with an engineering grid on the ground
+  const blueprint = planStyle === 'blueprint';
+  const gridSize = Math.ceil((radius * 8) / 100) * 100;
+
   return (
     <>
-      <color attach="background" args={[project.settings.timeOfDay === 'night' ? '#0b1220' : '#dfe8f1']} />
+      <color attach="background" args={[night ? '#0b1220' : blueprint ? '#0d1a2c' : '#dfe8f1']} />
       <Lights project={project} center={center} radius={radius} />
       <mesh
         rotation={[-Math.PI / 2, 0, 0]}
@@ -428,8 +434,9 @@ function SceneContent() {
         onClick={(e) => e.delta < 5 && useEditor.getState().select(null)}
       >
         <planeGeometry args={[radius * 12, radius * 12]} />
-        <meshStandardMaterial color={project.settings.timeOfDay === 'night' ? '#1f2937' : '#e7e3da'} roughness={1} />
+        <meshStandardMaterial color={night ? '#1f2937' : blueprint ? '#1b2a40' : '#e7e3da'} roughness={1} />
       </mesh>
+      {blueprint && <gridHelper args={[gridSize, gridSize / 100, '#2f6c9e', '#1f3b5c']} position={[center.x, -0.5, center.z]} />}
       {visibleFloors.map((floor, i) => {
         const y = baseOf(i);
         return (
