@@ -46,6 +46,46 @@ function createSkyTexture(night: boolean): THREE.DataTexture {
 }
 
 /**
+ * The tracer merges all meshes into one geometry and indexes materials by mesh, so a mesh
+ * with a material array (our walls: one material per box face) would shift the materials of
+ * every later mesh. While the scene is captured, such meshes are replaced by one part per
+ * face group, each with a single material; `restore` undoes it right after.
+ */
+function splitMultiMaterialMeshes(scene: THREE.Scene): () => void {
+  const multi: THREE.Mesh[] = [];
+  scene.traverse((o) => {
+    const mesh = o as THREE.Mesh;
+    if (mesh.isMesh && mesh.visible && Array.isArray(mesh.material) && mesh.parent) multi.push(mesh);
+  });
+  const parts: THREE.Mesh[] = [];
+  for (const mesh of multi) {
+    const g = mesh.geometry;
+    const materials = mesh.material as THREE.Material[];
+    for (const group of g.groups) {
+      const material = materials[group.materialIndex ?? 0];
+      if (!material) continue;
+      const sub = new THREE.BufferGeometry();
+      for (const [name, attr] of Object.entries(g.attributes)) sub.setAttribute(name, attr);
+      const index = new Uint32Array(group.count);
+      for (let i = 0; i < group.count; i++) index[i] = g.index ? g.index.getX(group.start + i) : group.start + i;
+      sub.setIndex(new THREE.BufferAttribute(index, 1));
+      const part = new THREE.Mesh(sub, material);
+      part.position.copy(mesh.position);
+      part.quaternion.copy(mesh.quaternion);
+      part.scale.copy(mesh.scale);
+      mesh.parent!.add(part);
+      parts.push(part);
+    }
+    mesh.visible = false;
+  }
+  return () => {
+    // Parts share the original attribute buffers, so they are detached, never disposed
+    for (const part of parts) part.removeFromParent();
+    for (const mesh of multi) mesh.visible = true;
+  };
+}
+
+/**
  * Photoreal render: physically based path tracing of the current scene on the GPU
  * (global illumination, soft shadows, glass, reflections). Mounted only while a render is
  * active; its priority-1 frame callback takes over drawing from the regular renderer, and
@@ -79,7 +119,12 @@ export function PathTracer() {
       // Trace at CSS-pixel resolution and in tiles so the UI stays responsive on weaker GPUs
       pt.renderScale = 1 / Math.max(1, gl.getPixelRatio());
       pt.tiles.set(3, 3);
-      pt.setScene(scene, camera);
+      const restore = splitMultiMaterialMeshes(scene);
+      try {
+        pt.setScene(scene, camera);
+      } finally {
+        restore();
+      }
       tracer.current = pt;
       reported.current = -1;
     } catch (e) {
@@ -94,6 +139,14 @@ export function PathTracer() {
       sky.dispose();
     };
   }, [gl, scene, camera, run, night]);
+
+  // A GPU overloaded by path tracing may reset the WebGL context: stop with a clear message
+  useEffect(() => {
+    const el = gl.domElement;
+    const lost = () => usePhotoRender.getState().fail('Видеокарта не справилась с фото-рендером. Выберите «Черновик» или более мощное устройство.');
+    el.addEventListener('webglcontextlost', lost);
+    return () => el.removeEventListener('webglcontextlost', lost);
+  }, [gl]);
 
   useFrame(() => {
     const pt = tracer.current;

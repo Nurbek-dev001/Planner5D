@@ -308,7 +308,7 @@ function PhotoRenderPanel({ name }: { name: string }) {
   return (
     <div className="hud absolute bottom-4 left-1/2 w-[min(92%,460px)] -translate-x-1/2 p-3">
       <div className="flex items-center justify-between font-mono text-[11px] tracking-wide uppercase">
-        <span>{done ? 'Рендер готов' : 'Фото-рендер · трассировка лучей'}</span>
+        <span>{done ? 'Рендер готов' : samples === 0 ? 'Подготовка сцены…' : 'Фото-рендер · трассировка лучей'}</span>
         <span className="tabular-nums">
           {samples}/{target}
         </span>
