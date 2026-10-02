@@ -8,7 +8,8 @@
     "build": "tsc -p tsconfig.json && vite build",
     "preview": "vite preview",
     "typecheck": "tsc -p tsconfig.json",
-    "test": "vitest run"
+    "test": "vitest run",
+    "build:demo": "VITE_STATIC_DEMO=1 vite build --base ./ --outDir dist-demo && node scripts/pack-demo-models.mjs dist-demo/models"
   },
   "dependencies": {
     "@react-three/drei": "^10.7.9",

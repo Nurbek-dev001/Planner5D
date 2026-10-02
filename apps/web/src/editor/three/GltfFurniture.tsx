@@ -1,10 +1,34 @@
-import { Component, Suspense, useMemo, type ReactNode } from 'react';
+import { Component, Suspense, use, useMemo, type ReactNode } from 'react';
 import { useGLTF } from '@react-three/drei';
 import * as THREE from 'three';
 
 /** Catalog model URLs are relative to the app's base URL (works for the static demo build too) */
 export function resolveModelUrl(url: string) {
   return /^(https?:|data:|blob:)/.test(url) ? url : `${import.meta.env.BASE_URL}${url.replace(/^\//, '')}`;
+}
+
+const STATIC_DEMO = import.meta.env.VITE_STATIC_DEMO === '1';
+const packed = new Map<string, Promise<string>>();
+
+/**
+ * Static demo hosting may not serve .glb files, so `npm run build:demo` also ships each model
+ * base64-wrapped as `<name>.glb.json`; it is unpacked into a blob URL here.
+ */
+function unpackModel(url: string): Promise<string> {
+  let p = packed.get(url);
+  if (!p) {
+    p = fetch(`${url}.json`)
+      .then((r) => {
+        if (!r.ok) throw new Error(`Model ${url}: ${r.status}`);
+        return r.json() as Promise<{ glb: string }>;
+      })
+      .then(({ glb }) => {
+        const bytes = Uint8Array.from(atob(glb), (c) => c.charCodeAt(0));
+        return URL.createObjectURL(new Blob([bytes], { type: 'model/gltf-binary' }));
+      });
+    packed.set(url, p);
+  }
+  return p;
 }
 
 const floatGeometries = new WeakSet<THREE.BufferGeometry>();
@@ -34,8 +58,9 @@ function toFloatAttributes(root: THREE.Object3D) {
  * width × height × depth (cm), so resizing in the editor works the same as for procedural models.
  */
 function FittedModel({ url, w, h, d }: { url: string; w: number; h: number; d: number }) {
+  const src = STATIC_DEMO ? use(unpackModel(url)) : url;
   // No Draco (decoder would come from a CDN); meshopt is decoded locally
-  const { scene } = useGLTF(url, false, true);
+  const { scene } = useGLTF(src, false, true);
   const object = useMemo(() => {
     toFloatAttributes(scene);
     const root = scene.clone(true);
