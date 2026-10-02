@@ -37,6 +37,13 @@ export function exportImage(name: string, format: 'png' | 'jpg') {
   download(canvas.toDataURL(format === 'png' ? 'image/png' : 'image/jpeg', 0.92), `${safeName(name)}.${format}`);
 }
 
+/** Saves the finished photoreal render exactly as shown on the 3D canvas */
+export function exportPhoto(name: string) {
+  const canvas = viewport.canvas3d;
+  if (!canvas) return;
+  download(canvas.toDataURL('image/png'), `${safeName(name)}-render.png`);
+}
+
 export function exportJson(name: string, data: ProjectData) {
   const blob = new Blob([JSON.stringify({ name, data }, null, 2)], { type: 'application/json' });
   const url = URL.createObjectURL(blob);

@@ -2,11 +2,13 @@ import { useMemo, type ReactNode } from 'react';
 import * as THREE from 'three';
 import type { CatalogItem, PlacedObject } from '@spaceplan/shared';
 import { materialFor, plainMaterial, worldUVs } from './materials';
+import { GltfFurniture } from './GltfFurniture';
 
 /**
  * Procedural low-poly furniture (docs, section 12) built from primitives and the object's
  * actual dimensions. Local frame: X = width, Y = up (from the object's bottom), Z = depth,
- * back of the object at -Z. Replace with GLB models via `CatalogItem.modelUrl` later.
+ * back of the object at -Z. Items with `CatalogItem.modelUrl` render the real GLB model instead,
+ * with the procedural one as the loading / error fallback.
  */
 
 const boxGeoCache = new Map<string, THREE.BoxGeometry>();
@@ -38,6 +40,12 @@ const Cyl = ({ r, h, p, m, top }: { r: number; h: number; p: [number, number, nu
 );
 
 export function Furniture3D({ obj, item }: { obj: PlacedObject; item: CatalogItem | undefined }) {
+  const procedural = <ProceduralFurniture obj={obj} item={item} />;
+  if (!item?.modelUrl) return procedural;
+  return <GltfFurniture url={item.modelUrl} w={obj.width} h={obj.height} d={obj.depth} fallback={procedural} />;
+}
+
+function ProceduralFurniture({ obj, item }: { obj: PlacedObject; item: CatalogItem | undefined }) {
   const kind = item?.model ?? 'desk';
   const { width: w, depth: d, height: h } = obj;
   const color = obj.color ?? item?.color ?? '#999999';

@@ -17,4 +17,6 @@ export const config = {
   versionIntervalMs: 10 * 60 * 1000,
   maxVersionsPerProject: 50,
   freeProjectLimit: 10,
+  /** AI plan recognition: needs Anthropic credentials (ANTHROPIC_API_KEY, or AI_ENABLED=1 with an `ant auth login` profile) */
+  aiEnabled: Boolean(env.ANTHROPIC_API_KEY || env.ANTHROPIC_AUTH_TOKEN || env.AI_ENABLED === '1'),
 };

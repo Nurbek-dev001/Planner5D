@@ -1,4 +1,5 @@
 import {
+  applyRoomLabels,
   cleanupOpenings,
   clampOpeningOffset,
   createWall,
@@ -11,6 +12,7 @@ import {
   type Floor,
   type Opening,
   type PlacedObject,
+  type PlanGeometry,
   type ProjectData,
   type Room,
   type Vec2,
@@ -200,6 +202,35 @@ export const DeleteRoomCommand = (floorId: string, roomId: string): Command => (
     };
     f.walls = f.walls.filter((w) => !onEdge(room.polygon, w) || others.some((r) => onEdge(r.polygon, w)));
     afterWallsChanged(f);
+  },
+});
+
+/** Puts a recognised floor plan on the floor (replacing it, or next to the existing plan) */
+export const ImportPlanCommand = (floorId: string, geometry: PlanGeometry, replace: boolean): Command => ({
+  label: 'Импорт плана',
+  apply: (p) => {
+    const f = floorOf(p, floorId);
+    const g = structuredClone(geometry);
+    if (replace) {
+      f.walls = [];
+      f.openings = [];
+      f.rooms = [];
+      f.objects = [];
+    } else if (f.walls.length) {
+      // Place the imported plan to the right of what is already drawn
+      const maxX = Math.max(...f.walls.flatMap((w) => [w.start.x, w.end.x]));
+      const minX = Math.min(...g.walls.flatMap((w) => [w.start.x, w.end.x]));
+      const dx = maxX + 200 - minX;
+      for (const w of g.walls) {
+        w.start.x += dx;
+        w.end.x += dx;
+      }
+      for (const l of g.roomLabels) l.point.x += dx;
+    }
+    f.walls.push(...g.walls);
+    f.openings.push(...g.openings);
+    afterWallsChanged(f);
+    applyRoomLabels(f, g.roomLabels);
   },
 });
 

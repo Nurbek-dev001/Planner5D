@@ -25,6 +25,8 @@ interface Base {
   wallMounted?: boolean;
   light?: boolean;
   manufacturer?: string;
+  /** Real 3D model (GLB, relative to the web app's base URL); the procedural `model` is the fallback */
+  modelUrl?: string;
   /** Extra variants of the same model (size / finish / price) */
   variants?: {
     suffix: string;
@@ -186,6 +188,16 @@ const BASES: Base[] = [
   { key: 'floor-lamp', name: 'Торшер', category: 'lighting', subcategory: 'Торшеры', model: 'floor-lamp', size: [40, 40, 165], price: 39990, color: '#2a2a2c', light: true,
     variants: [{ suffix: 'латунь', price: 64990, color: '#c6a15b', premium: true }] },
   { key: 'wall-lamp', name: 'Бра', category: 'lighting', subcategory: 'Бра', model: 'wall-lamp', size: [20, 20, 25], price: 19990, color: '#c6a15b', elevation: 170, wallMounted: true, light: true },
+
+  // Photoreal 3D models (scanned designer furniture, see apps/web/public/models/CREDITS.md)
+  { key: 'sofa-glam', name: 'Диван Glam велюр', category: 'living', subcategory: 'Диваны', model: 'sofa', size: [219, 102, 79], price: 489990, color: '#c9b9a6', manufacturer: 'Wayfair 3D', modelUrl: 'models/GlamVelvetSofa.glb', premium: true },
+  { key: 'sofa-leather-wood', name: 'Диван кожаный на дереве', category: 'living', subcategory: 'Диваны', model: 'sofa', size: [273, 92, 112], price: 789990, color: '#6b4028', manufacturer: 'Wayfair 3D', modelUrl: 'models/SheenWoodLeatherSofa.glb', premium: true },
+  { key: 'armchair-sheen', name: 'Кресло Sheen', category: 'living', subcategory: 'Кресла', model: 'armchair', size: [83, 57, 69], price: 179990, color: '#7a8a9a', manufacturer: 'Wayfair 3D', modelUrl: 'models/SheenChair.glb', premium: true },
+  { key: 'armchair-damask', name: 'Кресло Damask', category: 'living', subcategory: 'Кресла', model: 'armchair', size: [83, 57, 69], price: 199990, color: '#5b3a6b', manufacturer: 'Wayfair 3D', modelUrl: 'models/ChairDamaskPurplegold.glb', premium: true },
+  { key: 'floor-lamp-arc', name: 'Торшер дизайнерский', category: 'lighting', subcategory: 'Торшеры', model: 'floor-lamp', size: [113, 72, 186], price: 129990, color: '#2a2a2c', manufacturer: 'SpacePlan 3D', modelUrl: 'models/LightsPunctualLamp.glb', light: true, premium: true },
+  { key: 'table-lamp', name: 'Настольная лампа', category: 'lighting', subcategory: 'Торшеры', model: 'floor-lamp', size: [30, 30, 48], price: 34990, color: '#c6c8cb', manufacturer: 'Wayfair 3D', modelUrl: 'models/IridescenceLamp.glb', elevation: 50, light: true },
+  { key: 'plant-pot', name: 'Растение в горшке', category: 'decor', subcategory: 'Растения', model: 'plant', size: [70, 66, 84], price: 32990, color: '#4f7d4a', manufacturer: 'SpacePlan 3D', modelUrl: 'models/DiffuseTransmissionPlant.glb' },
+  { key: 'vase-flowers', name: 'Ваза с цветами', category: 'decor', subcategory: 'Растения', model: 'plant', size: [22, 14, 20], price: 12990, color: '#d9a7b0', manufacturer: 'SpacePlan 3D', modelUrl: 'models/GlassVaseFlowers.glb', elevation: 42 },
 ];
 
 function build(): CatalogItem[] {
@@ -197,7 +209,7 @@ function build(): CatalogItem[] {
       category: b.category,
       subcategory: b.subcategory,
       model: b.model,
-      modelUrl: null,
+      modelUrl: b.modelUrl ?? null,
       thumbnail: null,
       width: b.size[0],
       depth: b.size[1],

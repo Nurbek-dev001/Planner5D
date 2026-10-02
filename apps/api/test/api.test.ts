@@ -5,6 +5,7 @@ import { createApp } from '../src/app';
 import { pool } from '../src/db';
 import { migrate } from '../src/migrate';
 import { seed } from '../src/seed';
+import { config } from '../src/config';
 
 const app = createApp();
 const email = `user${Date.now()}@example.kz`;
@@ -127,5 +128,25 @@ describe('catalog', () => {
     expect(sofa.body.item.price).toBe(289990);
     const mats = await request(app).get('/api/materials');
     expect(mats.body.materials.length).toBeGreaterThan(20);
+  });
+});
+
+describe('ai', () => {
+  it('reports whether plan recognition is configured and protects the endpoint', async () => {
+    const status = await request(app).get('/api/ai/status');
+    expect(status.status).toBe(200);
+    expect(typeof status.body.planRecognition).toBe('boolean');
+
+    const anon = await request(app).post('/api/ai/recognize-plan').send({});
+    expect(anon.status).toBe(401);
+  });
+
+  // Without Anthropic credentials (CI) the endpoint must fail cleanly, before any validation of the image
+  it.skipIf(config.aiEnabled)('returns 503 when AI is not configured', async () => {
+    const res = await request(app)
+      .post('/api/ai/recognize-plan')
+      .set('Authorization', `Bearer ${token}`)
+      .send({ image: 'x'.repeat(200), mediaType: 'image/png', width: 100, height: 100 });
+    expect(res.status).toBe(503);
   });
 });

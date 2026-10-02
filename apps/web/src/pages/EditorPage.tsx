@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Link, useParams } from 'react-router';
+import { Link, useParams, useSearchParams } from 'react-router';
 import { History } from 'lucide-react';
 import { Editor } from '../editor/Editor';
 import { useCloudProject } from '../editor/useCloudProject';
@@ -7,6 +7,8 @@ import { VersionsDialog } from '../editor/panels/VersionsDialog';
 
 export default function EditorPage() {
   const { id } = useParams<{ id: string }>();
+  // Opened from "New project → upload a plan": start with the plan import dialog
+  const [search] = useSearchParams();
   const { meta, error, saveState, save, rename, reload } = useCloudProject(id!);
   const [versionsOpen, setVersionsOpen] = useState(false);
 
@@ -29,6 +31,7 @@ export default function EditorPage() {
         saveState={saveState}
         onSave={save}
         backTo="/dashboard"
+        initialImport={search.get('import') === '1'}
         headerExtra={
           <>
             {saveState === 'conflict' && (

@@ -265,7 +265,10 @@ export function createProjectFromTemplate(templateId: string): ProjectData {
     place(floor, 'tv-stand', 300, 32, 0);
     place(floor, 'tv', 300, 20, 0);
     place(floor, 'rug', 250, 230);
-    place(floor, 'plant', 560, 40);
+    place(floor, 'plant-pot', 555, 45);
+    place(floor, 'armchair-sheen', 470, 230, 90);
+    place(floor, 'floor-lamp-arc', 60, 70);
+    place(floor, 'vase-flowers', 250, 220);
     place(floor, 'bed-double-v1', 850, 240, 180);
     place(floor, 'nightstand', 730, 330, 180);
     place(floor, 'nightstand', 970, 330, 180);

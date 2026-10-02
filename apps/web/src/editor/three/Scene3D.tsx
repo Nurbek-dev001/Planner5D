@@ -2,6 +2,8 @@ import { useEffect, useMemo, useRef } from 'react';
 import { Canvas, useFrame, useThree, type ThreeEvent } from '@react-three/fiber';
 import { OrbitControls } from '@react-three/drei';
 import * as THREE from 'three';
+import { RoomEnvironment } from 'three/examples/jsm/environments/RoomEnvironment.js';
+import { EffectComposer, N8AO, SMAA } from '@react-three/postprocessing';
 import type { OrbitControls as OrbitControlsImpl } from 'three-stdlib';
 import {
   CATALOG_BY_ID,
@@ -31,6 +33,8 @@ import { materialFor, plainMaterial, worldUVs } from './materials';
 import { Furniture3D, lightOffset } from './Furniture3D';
 import { viewport } from '../viewport';
 import { walkInput } from './walkInput';
+import { PathTracer } from './PathTracer';
+import { usePhotoRender } from './photoRender';
 
 const EYE_HEIGHT = 165;
 
@@ -361,8 +365,8 @@ function Lights({ project, center, radius }: { project: ProjectData; center: THR
   }, [center, radius, sunPos]);
   return (
     <>
-      <hemisphereLight args={['#ffffff', '#b8a98f', night ? 0.08 : 1.1]} />
-      <ambientLight intensity={night ? 0.05 : 0.35} />
+      <hemisphereLight args={['#ffffff', '#b8a98f', night ? 0.06 : 0.55]} />
+      <ambientLight intensity={night ? 0.03 : 0.12} />
       {!night && (
         <directionalLight
           ref={light}
@@ -379,6 +383,28 @@ function Lights({ project, center, radius }: { project: ProjectData; center: THR
   );
 }
 
+/**
+ * Image-based lighting from a procedural studio room (no HDR download needed): gives PBR
+ * materials of the real 3D models their reflections and soft fill light.
+ */
+function StudioEnvironment({ intensity }: { intensity: number }) {
+  const { gl, scene } = useThree();
+  useEffect(() => {
+    const pmrem = new THREE.PMREMGenerator(gl);
+    const env = pmrem.fromScene(new RoomEnvironment(), 0.04).texture;
+    scene.environment = env;
+    return () => {
+      scene.environment = null;
+      env.dispose();
+      pmrem.dispose();
+    };
+  }, [gl, scene]);
+  useEffect(() => {
+    scene.environmentIntensity = intensity;
+  }, [scene, intensity]);
+  return null;
+}
+
 // ------------------------------------------------------------------ scene
 
 function SceneContent() {
@@ -387,6 +413,7 @@ function SceneContent() {
   const floorId = useEditor((s) => s.floorId);
   const selection = useEditor((s) => s.selection);
   const walkMode = useEditor((s) => s.walkMode);
+  const photo = usePhotoRender((s) => s.active);
   const activeIndex = Math.max(0, project.floors.findIndex((f) => f.id === floorId));
   const visibleFloors = project.floors.slice(0, activeIndex + 1);
   const active = project.floors[activeIndex];
@@ -427,6 +454,7 @@ function SceneContent() {
     <>
       <color attach="background" args={[night ? '#0b1220' : blueprint ? '#0d1a2c' : '#dfe8f1']} />
       <Lights project={project} center={center} radius={radius} />
+      <StudioEnvironment intensity={night ? 0.05 : 0.35} />
       <mesh
         rotation={[-Math.PI / 2, 0, 0]}
         position={[center.x, -1, center.z]}
@@ -436,7 +464,7 @@ function SceneContent() {
         <planeGeometry args={[radius * 12, radius * 12]} />
         <meshStandardMaterial color={night ? '#1f2937' : blueprint ? '#1b2a40' : '#e7e3da'} roughness={1} />
       </mesh>
-      {blueprint && <gridHelper args={[gridSize, gridSize / 100, '#2f6c9e', '#1f3b5c']} position={[center.x, -0.5, center.z]} />}
+      {blueprint && !photo && <gridHelper args={[gridSize, gridSize / 100, '#2f6c9e', '#1f3b5c']} position={[center.x, -0.5, center.z]} />}
       {visibleFloors.map((floor, i) => {
         const y = baseOf(i);
         return (
@@ -450,15 +478,24 @@ function SceneContent() {
               <RoomFloor key={r.id} room={r} walls={floor.walls} y={y} ceiling={walkMode && i === activeIndex ? floor.height : null} />
             ))}
             {floor.objects.map((o) => (
-              <Object3D key={o.id} obj={o} floor={floor} baseY={y} selected={selection?.kind === 'object' && selection.id === o.id} />
+              <Object3D key={o.id} obj={o} floor={floor} baseY={y} selected={!photo && selection?.kind === 'object' && selection.id === o.id} />
             ))}
           </group>
         );
       })}
       {walkMode ? (
-        <WalkControls start={walkStart} baseY={activeBase} />
+        !photo && <WalkControls start={walkStart} baseY={activeBase} />
       ) : (
-        <OrbitControls makeDefault target={center} maxPolarAngle={Math.PI / 2 - 0.05} minDistance={100} maxDistance={radius * 8} />
+        <OrbitControls makeDefault enabled={!photo} target={center} maxPolarAngle={Math.PI / 2 - 0.05} minDistance={100} maxDistance={radius * 8} />
+      )}
+      {photo ? (
+        <PathTracer />
+      ) : (
+        // Real-time: ambient occlusion in corners / under furniture + anti-aliasing
+        <EffectComposer multisampling={0}>
+          <N8AO aoRadius={60} distanceFalloff={0.6} intensity={2.2} quality="medium" />
+          <SMAA />
+        </EffectComposer>
       )}
     </>
   );

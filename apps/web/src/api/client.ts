@@ -1,4 +1,4 @@
-import type { CatalogCategory, CatalogItem, Material, ProjectData, TemplateInfo } from '@spaceplan/shared';
+import type { CatalogCategory, CatalogItem, Material, ProjectData, RecognizedPlan, TemplateInfo } from '@spaceplan/shared';
 
 export interface User {
   id: string;
@@ -140,4 +140,8 @@ export const api = {
   categories: () => request<{ categories: CatalogCategory[] }>('GET', '/catalog/categories'),
   catalogItems: () => request<{ items: CatalogItem[] }>('GET', '/catalog/items'),
   materials: () => request<{ materials: Material[] }>('GET', '/materials'),
+
+  aiStatus: () => request<{ planRecognition: boolean }>('GET', '/ai/status'),
+  recognizePlan: (body: { image: string; mediaType: 'image/png' | 'image/jpeg' | 'image/webp'; width: number; height: number }) =>
+    request<{ plan: RecognizedPlan }>('POST', '/ai/recognize-plan', body),
 };

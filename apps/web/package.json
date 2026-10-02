@@ -13,16 +13,20 @@
   "dependencies": {
     "@react-three/drei": "^10.7.9",
     "@react-three/fiber": "^9.8.1",
+    "@react-three/postprocessing": "^3.1.3",
     "@spaceplan/shared": "*",
     "immer": "^11.1.18",
     "jspdf": "^4.2.1",
     "konva": "^10.7.0",
     "lucide-react": "^1.49.0",
+    "pdfjs-dist": "^6.3.289",
     "react": "^19.3.0",
     "react-dom": "^19.3.0",
     "react-konva": "^19.3.0",
     "react-router": "^8.4.0",
     "three": "^0.186.1",
+    "three-gpu-pathtracer": "^0.0.26",
+    "three-mesh-bvh": "^0.9.15",
     "zustand": "^5.0.15"
   },
   "devDependencies": {

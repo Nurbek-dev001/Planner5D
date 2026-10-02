@@ -2,6 +2,7 @@ import { lazy, Suspense, useEffect, useRef, useState, type ReactNode } from 'rea
 import { Link } from 'react-router';
 import {
   Box,
+  Aperture,
   Calculator,
   Contrast,
   Check,
@@ -16,6 +17,7 @@ import {
   Redo2,
   Ruler,
   Save,
+  ScanLine,
   Sun,
   Undo2,
   AlertTriangle,
@@ -28,7 +30,9 @@ import { CatalogPanel } from './panels/CatalogPanel';
 import { PropertiesPanel } from './panels/PropertiesPanel';
 import { FloorsBar } from './panels/FloorsBar';
 import { BudgetDialog } from './panels/BudgetDialog';
-import { exportImage, exportJson, exportPdf } from './export';
+import { PlanImportDialog } from './panels/PlanImportDialog';
+import { exportImage, exportJson, exportPdf, exportPhoto } from './export';
+import { PHOTO_SAMPLES, usePhotoRender, type PhotoQuality } from './three/photoRender';
 import {
   DeleteObjectCommand,
   DeleteOpeningCommand,
@@ -52,6 +56,8 @@ interface EditorProps {
   onSave?: () => void;
   headerExtra?: ReactNode;
   backTo: string;
+  /** Open the "plan from a photo / PDF" dialog right away */
+  initialImport?: boolean;
 }
 
 function isTyping(e: KeyboardEvent) {
@@ -68,7 +74,7 @@ function deleteSelection() {
   s.select(null);
 }
 
-export function Editor({ name, onRename, saveState, onSave, headerExtra, backTo }: EditorProps) {
+export function Editor({ name, onRename, saveState, onSave, headerExtra, backTo, initialImport }: EditorProps) {
   const view = useEditor((s) => s.view);
   const walkMode = useEditor((s) => s.walkMode);
   const canUndo = useEditor((s) => s.past.length > 0);
@@ -80,6 +86,7 @@ export function Editor({ name, onRename, saveState, onSave, headerExtra, backTo 
   const night = useEditor((s) => s.project.settings.timeOfDay === 'night');
   const planStyle = useEditor((s) => s.planStyle);
   const [budgetOpen, setBudgetOpen] = useState(false);
+  const [importOpen, setImportOpen] = useState(!!initialImport);
   const [leftTab, setLeftTab] = useState<'catalog' | 'help'>('catalog');
   const { undo, redo, setView, set, execute } = useEditor.getState();
 
@@ -152,6 +159,10 @@ export function Editor({ name, onRename, saveState, onSave, headerExtra, backTo 
         </button>
         <div className="flex-1" />
         {headerExtra}
+        <button className="btn-ghost" onClick={() => setImportOpen(true)} title="Распознать план квартиры из фото, скана или PDF">
+          <ScanLine size={17} />
+          <span className="hidden whitespace-nowrap lg:inline">План из фото</span>
+        </button>
         <button className="btn-ghost" onClick={() => setBudgetOpen(true)} title="Смета">
           <Calculator size={17} />
           <span className="hidden md:inline">Смета</span>
@@ -213,6 +224,7 @@ export function Editor({ name, onRename, saveState, onSave, headerExtra, backTo 
               </>
             ) : (
               <>
+                <PhotoButton />
                 <ToggleIcon active={walkMode} title="Прогулка от первого лица (WASD + мышь)" onClick={() => set({ walkMode: !walkMode })} icon={<Footprints size={16} />} />
                 <ToggleIcon
                   active={night}
@@ -238,6 +250,7 @@ export function Editor({ name, onRename, saveState, onSave, headerExtra, backTo 
             ))}
           </div>
 
+          {view === '3d' && <PhotoRenderPanel name={name} />}
           {view === '3d' && walkMode && <Joystick />}
           {view === '3d' && walkMode && (
             <div className="pointer-events-none absolute bottom-4 left-1/2 -translate-x-1/2 rounded-md bg-black/60 px-3 py-1 text-xs text-[#fff]">
@@ -253,6 +266,72 @@ export function Editor({ name, onRename, saveState, onSave, headerExtra, backTo 
       </div>
 
       {budgetOpen && <BudgetDialog onClose={() => setBudgetOpen(false)} />}
+      {importOpen && <PlanImportDialog onClose={() => setImportOpen(false)} />}
+    </div>
+  );
+}
+
+function PhotoButton() {
+  const active = usePhotoRender((s) => s.active);
+  return (
+    <button
+      title="Фото-рендер: фотореалистичная картинка (трассировка лучей)"
+      onClick={() => (active ? usePhotoRender.getState().stop() : usePhotoRender.getState().start())}
+      className={`hud-btn flex items-center gap-1.5 px-2 font-mono text-[11px] font-medium tracking-wide uppercase ${active ? 'hud-btn-active' : ''}`}
+    >
+      <Aperture size={15} />
+      Фото
+    </button>
+  );
+}
+
+const QUALITY_LABEL: Record<PhotoQuality, string> = { draft: 'Черновик', good: 'Хорошо', best: 'Максимум' };
+
+/** Progress and actions of the photoreal render, shown over the 3D view */
+function PhotoRenderPanel({ name }: { name: string }) {
+  const { active, samples, quality, error } = usePhotoRender();
+  const { start, stop } = usePhotoRender.getState();
+  // Leaving the 3D view or the editor ends the render
+  useEffect(() => () => usePhotoRender.getState().stop(), []);
+  if (error)
+    return (
+      <div className="hud absolute bottom-4 left-1/2 -translate-x-1/2 px-4 py-2 text-sm">
+        {error}{' '}
+        <button className="ml-2 underline" onClick={() => usePhotoRender.setState({ error: null })}>
+          OK
+        </button>
+      </div>
+    );
+  if (!active) return null;
+  const target = PHOTO_SAMPLES[quality];
+  const done = samples >= target;
+  return (
+    <div className="hud absolute bottom-4 left-1/2 w-[min(92%,460px)] -translate-x-1/2 p-3">
+      <div className="flex items-center justify-between font-mono text-[11px] tracking-wide uppercase">
+        <span>{done ? 'Рендер готов' : 'Фото-рендер · трассировка лучей'}</span>
+        <span className="tabular-nums">
+          {samples}/{target}
+        </span>
+      </div>
+      <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-[var(--hud-hover)]">
+        <div className="h-full bg-[var(--hud-accent)] transition-[width]" style={{ width: `${(samples / target) * 100}%` }} />
+      </div>
+      <div className="mt-3 flex flex-wrap items-center gap-1.5">
+        {(Object.keys(PHOTO_SAMPLES) as PhotoQuality[]).map((q) => (
+          <button key={q} onClick={() => start(q)} className={`hud-btn px-2 py-1 text-xs ${q === quality ? 'hud-btn-active' : ''}`}>
+            {QUALITY_LABEL[q]}
+          </button>
+        ))}
+        <div className="flex-1" />
+        {import.meta.env.VITE_STATIC_DEMO !== '1' && (
+          <button disabled={samples < 8} onClick={() => exportPhoto(name)} className="hud-btn hud-btn-active px-2.5 py-1 text-xs disabled:opacity-40">
+            Скачать PNG
+          </button>
+        )}
+        <button onClick={stop} className="hud-btn px-2.5 py-1 text-xs">
+          Закрыть
+        </button>
+      </div>
     </div>
   );
 }

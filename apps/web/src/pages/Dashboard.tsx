@@ -111,7 +111,7 @@ export default function Dashboard() {
       {creating && (
         <CreateProjectDialog
           onClose={() => setCreating(false)}
-          onCreated={(id) => navigate(`/project/${id}`)}
+          onCreated={(id, openImport) => navigate(`/project/${id}${openImport ? '?import=1' : ''}`)}
           onError={(m) => {
             setCreating(false);
             setError(m);
@@ -195,19 +195,19 @@ function ProjectCard({
   );
 }
 
-/** "New project" flow (docs, section 4): scratch / template / import; AI & plan upload are phase 2 */
-function CreateProjectDialog({ onClose, onCreated, onError }: { onClose: () => void; onCreated: (id: string) => void; onError: (m: string) => void }) {
+/** "New project" flow (docs, section 4): scratch / template / import / plan recognition; AI Generate is phase 2 */
+function CreateProjectDialog({ onClose, onCreated, onError }: { onClose: () => void; onCreated: (id: string, openImport?: boolean) => void; onError: (m: string) => void }) {
   const [name, setName] = useState('Моя квартира');
   const [busy, setBusy] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
 
-  const create = async (body: { templateId?: string; data?: ProjectData; name?: string }) => {
+  const create = async (body: { templateId?: string; data?: ProjectData; name?: string }, openImport = false) => {
     setBusy(true);
     try {
       const { project } = await api.createProject({ name: body.name ?? name, ...body });
       const thumb = renderThumbnail(project.data.floors[0]);
       if (thumb) await api.updateProject(project.id, { thumbnail: thumb }).catch(() => {});
-      onCreated(project.id);
+      onCreated(project.id, openImport);
     } catch (e) {
       onError(e instanceof ApiError ? (e.status === 402 ? 'Лимит бесплатного тарифа: 10 проектов' : e.message) : 'Ошибка создания проекта');
     } finally {
@@ -249,13 +249,17 @@ function CreateProjectDialog({ onClose, onCreated, onError }: { onClose: () => v
             <div className="text-xs text-gray-500">Файл .spaceplan.json</div>
           </div>
         </button>
-        <div className="flex items-center gap-3 rounded-xl border border-dashed border-gray-200 p-4 text-gray-400" title="Этап 2: AI Floor Plan Recognition">
-          <Upload />
+        <button
+          disabled={busy}
+          className="flex items-center gap-3 rounded-xl border border-gray-200 p-4 text-left hover:border-brand-500"
+          onClick={() => create({ templateId: 'empty' }, true)}
+        >
+          <Upload className="text-brand-600" />
           <div>
             <div className="font-medium">Загрузить план (JPG/PNG/PDF)</div>
-            <div className="text-xs">Распознавание AI — скоро</div>
+            <div className="text-xs text-gray-500">AI распознаёт стены, двери, окна и комнаты</div>
           </div>
-        </div>
+        </button>
         <div className="flex items-center gap-3 rounded-xl border border-dashed border-gray-200 p-4 text-gray-400" title="Этап 2: AI Generate">
           <Sparkles />
           <div>
